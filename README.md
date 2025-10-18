@@ -1,12 +1,31 @@
 # QuizQuest - AI-Powered Learning Quiz CLI
 
-Interactive command-line quiz application powered by Anthropic's Claude AI. Learn any topic through adaptive, progressively challenging multiple-choice questions with instant feedback and explanations. Generate quizzes from topics, web searches, uploaded documents, or specific URLs.
+Interactive command-line quiz application powered by Anthropic's Claude AI. Learn any topic through adaptive, progressively challenging questions with instant feedback and explanations. Generate quizzes from topics, web searches, uploaded documents, or specific URLs.
+
+## Quick Start
+
+Get started in 3 simple steps:
+
+```bash
+# 1. Clone or download this repository
+# 2. Install dependencies
+npm install
+
+# 3. Set up your API key
+echo "ANTHROPIC_API_KEY=your_actual_api_key_here" > .env
+
+# 4. Run your first quiz!
+npm run dev learn "JavaScript" -d easy -r 5
+```
+
+Get your free API key from [Anthropic Console](https://console.anthropic.com/)
 
 ## Features
 
 - **AI-Generated Questions**: Dynamic quiz generation using Claude AI
+- **Multiple Question Formats**: Choose between multiple-choice (4 options) or true-false questions
 - **Multiple Content Sources**: Generate quizzes from topics, files, web searches, or URLs
-- **File Upload Support**: Create quizzes from your own documents, notes, or study materials
+- **File Upload Support**: Create quizzes from your documents - supports TXT, MD, PDF, and DOCX files
 - **Adaptive Difficulty**: Choose from easy, medium, or hard difficulty levels
 - **Kid-Friendly Mode**: Special mode with fun analogies and simple language
 - **Interactive Experience**: Colorful, engaging terminal interface
@@ -16,10 +35,13 @@ Interactive command-line quiz application powered by Anthropic's Claude AI. Lear
 
 ## Installation
 
-1. Clone the repository:
+1. Clone or download this repository:
 ```bash
-git clone <repository-url>
+# If cloning from GitHub
+git clone [your-repository-url]
 cd ai-quiz-quest
+
+# Or download and extract the ZIP file, then navigate to the folder
 ```
 
 2. Install dependencies:
@@ -100,6 +122,38 @@ Test knowledge from course materials:
 npm run dev learn "Database Fundamentals" -s file -f ./db-chapter.txt -d hard
 ```
 
+Quiz from a PDF document:
+```bash
+npm run dev learn "Machine Learning" -s file -f ./ml-textbook.pdf -r 10
+```
+
+Quiz from a Word document:
+```bash
+npm run dev learn "History Notes" -s file -f ./history-chapter3.docx -d medium
+```
+
+#### True/False Format Quizzes
+
+Quick true/false quiz on any topic:
+```bash
+npm run dev learn "Python basics" --format true-false -r 10
+```
+
+True/false quiz for kids:
+```bash
+npm run dev learn "Animals" --format true-false --mode kid -r 8
+```
+
+Hard difficulty true/false challenge:
+```bash
+npm run dev learn "Quantum Physics" --format true-false -d hard -r 15
+```
+
+True/false quiz from a file:
+```bash
+npm run dev learn "Study Notes" --format true-false -s file -f ./notes.pdf -r 10
+```
+
 #### Web and URL-Based Quizzes (Coming Soon)
 
 Search web and generate quiz:
@@ -121,6 +175,7 @@ npm run dev learn "React Documentation" --source url --url https://react.dev/lea
 - `-d, --difficulty <level>` - Difficulty level: `easy`, `medium`, or `hard` (default: `easy`)
 - `-r, --rounds <number>` - Number of questions (1-20, default: `5`)
 - `--mode <mode>` - Quiz mode: `standard` or `kid` (default: `standard`)
+- `--format <type>` - Question format: `multiple-choice` or `true-false` (default: `multiple-choice`)
 - `-s, --source <type>` - Content source: `topic`, `web`, `file`, or `url` (default: `topic`)
 - `-f, --file <path>` - Path to file (required when using `--source file`)
 - `-u, --url <url>` - URL to scrape (required when using `--source url`)
@@ -136,15 +191,18 @@ Generate quizzes on any topic using Claude's general knowledge. Perfect for lear
 Upload your own study materials, notes, or documentation to create targeted quizzes. Supports:
 - Text files (.txt)
 - Markdown files (.md)
+- PDF documents (.pdf) - extracts and parses text content
+- Word documents (.docx) - extracts formatted text
 - Any UTF-8 text content
 - Automatic content truncation (50,000 character limit to prevent token overflow)
 - Both relative and absolute file paths
 
 **Use Cases:**
 - Study for exams using course notes
-- Test understanding of technical documentation
+- Test understanding of technical documentation (including PDFs)
 - Review meeting notes or study guides
-- Create quizzes from research papers
+- Create quizzes from research papers and academic PDFs
+- Quiz from Word documents and presentations
 
 #### 3. Web Search (Coming Soon - Requires Firecrawl MCP)
 Search the web and generate quizzes from aggregated search results. Perfect for current events or specialized topics.
@@ -224,33 +282,39 @@ QuizQuest handles errors gracefully:
 
 ## Roadmap
 
-### Phase 1: Core Features (Complete)
+### Phase 1: Core Features ✅ (Complete)
 - Topic-based quiz generation
 - Difficulty levels and kid mode
 - Quiz history tracking
 - Improved error handling
 
-### Phase 2: Content Sources (Current)
-- File-based quiz generation (Complete)
+### Phase 2: Content Sources & Formats ✅ (Complete)
+- File-based quiz generation with multiple formats (TXT, MD, PDF, DOCX)
+- True/false and multiple-choice question formats
+- Enhanced quiz history with source tracking
+- Adaptive question generation from custom content
+
+### Phase 3: Web Integration (In Progress)
 - Web search integration (Pending - requires Firecrawl MCP)
 - URL scraping (Pending - requires Firecrawl MCP)
-- Enhanced quiz history with source tracking
-
-### Phase 3: Advanced Features (Planned)
 - Firecrawl MCP integration for web/URL sources
+
+### Phase 4: Advanced Features (Planned)
 - Statistics dashboard
-- Multiple file format support (PDF, DOCX)
 - Custom question banks
 - Spaced repetition learning
+- Export quiz results
 
 ## Contributing
 
 Contributions welcome! Areas for enhancement:
-- Additional quiz modes
+- Web search and URL scraping integration (Firecrawl MCP)
 - Statistics dashboard
 - Multiplayer support
 - Question difficulty rating
-- Additional file format support
+- Additional file format support (CSV, JSON, etc.)
+- Custom themes and styling
+- Quiz templates and presets
 
 ## License
 
