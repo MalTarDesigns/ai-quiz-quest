@@ -30,32 +30,6 @@ interface QuizState {
 
 type QuizMode = 'kid' | 'standard';
 
-// Fallback questions for API failures
-const FALLBACK_QUESTIONS: QuizQuestion[] = [
-  {
-    question: "What is the primary purpose of a function in programming?",
-    options: [
-      "To store data permanently",
-      "To reuse code and organize logic",
-      "To display graphics on screen",
-      "To connect to the internet"
-    ],
-    correct: 1,
-    explanation: "Functions allow you to reuse code and organize your program's logic into manageable, named blocks that can be called multiple times."
-  },
-  {
-    question: "What does API stand for?",
-    options: [
-      "Application Programming Interface",
-      "Advanced Program Integration",
-      "Automated Processing Instance",
-      "Application Process Identifier"
-    ],
-    correct: 0,
-    explanation: "API stands for Application Programming Interface. It's a set of rules and protocols that allows different software applications to communicate with each other."
-  }
-];
-
 // Generate Questions using Claude API
 async function generateQuestions(
   topic: string,
@@ -66,8 +40,13 @@ async function generateQuestions(
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey || apiKey === 'your_api_key_here') {
-    console.log(chalk.yellow('\n⚠️  API key not configured. Using fallback questions.\n'));
-    return FALLBACK_QUESTIONS.slice(0, rounds);
+    console.log(chalk.bold.red('\n❌ ERROR: Anthropic API key not configured\n'));
+    console.log(chalk.yellow('To fix this:'));
+    console.log(chalk.white('  1. Create a .env file in the project root'));
+    console.log(chalk.white('  2. Add: ANTHROPIC_API_KEY=your-actual-api-key-here'));
+    console.log(chalk.white('  3. Get your API key from: https://console.anthropic.com/'));
+    console.log(chalk.gray('\nQuiz cannot start without a valid API key.\n'));
+    process.exit(1);
   }
 
   try {
@@ -138,9 +117,16 @@ Rules:
     return questions;
 
   } catch (error) {
-    console.log(chalk.red('❌ Error generating questions:', error instanceof Error ? error.message : 'Unknown error'));
-    console.log(chalk.yellow('📝 Using fallback questions instead.\n'));
-    return FALLBACK_QUESTIONS.slice(0, Math.min(rounds, FALLBACK_QUESTIONS.length));
+    console.log(chalk.bold.red('\n❌ ERROR: Failed to generate quiz questions\n'));
+    console.log(chalk.yellow('Details:'));
+    console.log(chalk.white(`  ${error instanceof Error ? error.message : 'Unknown error'}`));
+    console.log(chalk.yellow('\nPossible causes:'));
+    console.log(chalk.white('  • Network connection issues'));
+    console.log(chalk.white('  • Invalid API key'));
+    console.log(chalk.white('  • Anthropic API service issues'));
+    console.log(chalk.white('  • Rate limiting'));
+    console.log(chalk.yellow('\nPlease try again in a moment.\n'));
+    process.exit(1);
   }
 }
 

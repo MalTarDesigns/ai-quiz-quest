@@ -4,9 +4,10 @@
   "description": "Interactive CLI quiz app powered by Claude AI",
   "main": "src/index.ts",
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["cli", "quiz", "learning", "ai", "claude"],
   "author": "",
