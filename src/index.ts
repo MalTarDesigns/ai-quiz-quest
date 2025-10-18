@@ -7,6 +7,9 @@ import * as dotenv from 'dotenv';
 import inquirer from 'inquirer';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import mammoth from 'mammoth';
+// @ts-ignore - pdf-parse has type issues with ES modules
+import pdfParse from 'pdf-parse';
 
 // Load environment variables
 dotenv.config();
@@ -54,10 +57,29 @@ async function readFileContent(filePath: string): Promise<string> {
       throw new Error('Path is not a file');
     }
 
-    const content = await fs.readFile(resolvedPath, 'utf-8');
+    // Detect file type by extension
+    const ext = path.extname(resolvedPath).toLowerCase();
+    let content: string;
+
+    switch (ext) {
+      case '.docx':
+        content = await readDocxFile(resolvedPath);
+        break;
+      case '.pdf':
+        content = await readPdfFile(resolvedPath);
+        break;
+      case '.txt':
+      case '.md':
+      case '.markdown':
+      case '.text':
+      default:
+        // Plain text files
+        content = await fs.readFile(resolvedPath, 'utf-8');
+        break;
+    }
 
     if (!content || content.trim().length === 0) {
-      throw new Error('File is empty');
+      throw new Error('File is empty or contains no extractable text');
     }
 
     // Truncate to prevent token overflow (approximately 50,000 characters)
@@ -79,6 +101,38 @@ async function readFileContent(filePath: string): Promise<string> {
       throw error;
     }
     throw new Error('Failed to read file');
+  }
+}
+
+async function readDocxFile(filePath: string): Promise<string> {
+  try {
+    const buffer = await fs.readFile(filePath);
+    const result = await mammoth.extractRawText({ buffer });
+
+    if (result.messages.length > 0) {
+      console.log(chalk.gray('📝 Document parsing notes:'));
+      result.messages.forEach(msg => {
+        console.log(chalk.gray(`  - ${msg.message}`));
+      });
+    }
+
+    return result.value;
+  } catch (error) {
+    throw new Error(`Failed to parse .docx file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+async function readPdfFile(filePath: string): Promise<string> {
+  try {
+    const buffer = await fs.readFile(filePath);
+    // @ts-ignore - pdf-parse has type issues with call signature
+    const data = await pdfParse(buffer);
+
+    console.log(chalk.gray(`📄 PDF parsed: ${data.numpages} pages, ${data.text.length} characters`));
+
+    return data.text;
+  } catch (error) {
+    throw new Error(`Failed to parse .pdf file: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -104,6 +158,35 @@ async function fetchUrlContent(url: string): Promise<string> {
 }
 
 // Generate Questions using Claude API
+async function generateTopicFromContent(content: string): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || apiKey === 'your_api_key_here') {
+    throw new Error('Anthropic API key not configured');
+  }
+
+  try {
+    const anthropic = new Anthropic({ apiKey });
+    const prompt = `Analyze the following text and provide a concise topic (3-5 words) that summarizes it. Only return the topic string, with no extra text or quotation marks.\n\nContent:\n${content}`;
+
+    const message = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const topic = message.content[0].type === 'text' ? message.content[0].text.trim() : 'General Knowledge';
+    return topic;
+
+  } catch (error) {
+    console.log(chalk.red('\n❌ ERROR: Failed to determine topic from file.\n'));
+    if (error instanceof Error) {
+      console.log(chalk.white(`  ${error.message}`));
+    }
+    console.log(chalk.yellow('\nPlease check your API key and network connection.\n'));
+    process.exit(1);
+  }
+}
+
 async function generateQuestions(
   topic: string,
   difficulty: 'easy' | 'medium' | 'hard',
@@ -130,15 +213,26 @@ async function generateQuestions(
       ? 'Make the questions kid-friendly with fun analogies and simple language that a child can understand. Use exciting and engaging wording.'
       : 'Use professional, educational language appropriate for adult learners.';
 
-    const contentContext = content
-      ? `\n\nBase your questions on the following content:\n\n${content}\n\nEnsure all questions are directly derived from the provided content.`
-      : '';
+    // When content is provided, restructure prompt to prioritize the content over the topic
+    const prompt = content
+      ? `You are creating a quiz based EXCLUSIVELY on the following provided content. DO NOT use any external knowledge or information not present in the content below.
 
-    const prompt = `Generate exactly ${rounds} multiple-choice quiz questions about "${topic}" at ${difficulty} difficulty level.
+CONTENT TO USE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${content}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Based ONLY on the information in the content above, generate exactly ${rounds} multiple-choice quiz questions about "${topic}" at ${difficulty} difficulty level.
 
 ${modeInstruction}
 
-Make the questions progressively more challenging within the set.${contentContext}
+Make the questions progressively more challenging within the set.
+
+CRITICAL REQUIREMENTS:
+- All questions MUST be answerable using ONLY the provided content
+- Do NOT include information from your general knowledge about "${topic}"
+- If the content doesn't have enough information for ${rounds} questions, create fewer questions rather than inventing information
+- Every answer and explanation must reference specific details from the provided content
 
 Return ONLY a valid JSON array with this exact structure, no markdown formatting:
 [
@@ -155,7 +249,29 @@ Rules:
 - The "correct" field is the zero-based index (0-3) of the correct option
 - Include educational explanations
 - Make questions engaging and thought-provoking
-- Ensure factual accuracy${content ? '\n- Base all questions strictly on the provided content' : ''}`;
+- Ensure factual accuracy by using ONLY the provided content`
+      : `Generate exactly ${rounds} multiple-choice quiz questions about "${topic}" at ${difficulty} difficulty level.
+
+${modeInstruction}
+
+Make the questions progressively more challenging within the set.
+
+Return ONLY a valid JSON array with this exact structure, no markdown formatting:
+[
+  {
+    "question": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct": 0,
+    "explanation": "Detailed explanation of why the answer is correct"
+  }
+]
+
+Rules:
+- Each question must have exactly 4 options
+- The "correct" field is the zero-based index (0-3) of the correct option
+- Include educational explanations
+- Make questions engaging and thought-provoking
+- Ensure factual accuracy`;
 
     console.log(chalk.cyan('🤖 Generating quiz questions with Claude AI...\n'));
 
@@ -320,14 +436,14 @@ program
 program
   .command('learn')
   .description('Start a learning quiz on any topic')
-  .argument('<topic>', 'Topic to learn about')
+  .argument('[topic]', 'Topic to learn about (optional if file is provided)')
   .option('-d, --difficulty <level>', 'Difficulty level: easy, medium, or hard', 'easy')
   .option('-r, --rounds <number>', 'Number of questions', '5')
   .option('--mode <mode>', 'Quiz mode: standard or kid', 'standard')
   .option('-s, --source <type>', 'Content source: topic, web, file, or url', 'topic')
   .option('-f, --file <path>', 'Path to file (when using --source file)')
   .option('-u, --url <url>', 'URL to scrape (when using --source url)')
-  .action(async (topic: string, options: { difficulty: string; rounds: string; mode: string; source: string; file?: string; url?: string }) => {
+  .action(async (topic: string | undefined, options: { difficulty: string; rounds: string; mode: string; source: string; file?: string; url?: string }) => {
     try {
       // Validate options
       const difficulty = options.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard';
@@ -348,7 +464,10 @@ program
         process.exit(1);
       }
 
-      const source = options.source.toLowerCase() as ContentSource;
+      let source = options.source.toLowerCase() as ContentSource;
+      if (options.file) {
+        source = 'file';
+      }
       if (!['topic', 'web', 'file', 'url'].includes(source)) {
         console.log(chalk.red('❌ Invalid source. Use: topic, web, file, or url'));
         process.exit(1);
@@ -376,6 +495,10 @@ program
           sourceDetails = options.file;
           console.log(chalk.green(`✓ File loaded successfully (${content.length} characters)\n`));
         } else if (source === 'web') {
+          if (!topic) {
+            console.log(chalk.red('❌ Topic is required for web search'));
+            process.exit(1);
+          }
           console.log(chalk.cyan(`🌐 Searching web for: ${topic}\n`));
           content = await fetchWebContent(topic);
           sourceDetails = topic;
@@ -387,6 +510,17 @@ program
       } catch (error) {
         console.log(chalk.red('\n❌ Failed to fetch content:'));
         console.log(chalk.white(`  ${error instanceof Error ? error.message : 'Unknown error'}`));
+        process.exit(1);
+      }
+
+      // Determine topic from content if not provided
+      if (!topic && content) {
+        console.log(chalk.cyan('🤖 Analyzing document to determine the topic...'));
+        topic = await generateTopicFromContent(content);
+        console.log(chalk.green(`✓ Topic identified: "${topic}"\n`));
+      } else if (!topic) {
+        console.log(chalk.red('❌ A topic is required if no content source is provided.'));
+        program.help();
         process.exit(1);
       }
 
