@@ -31,9 +31,12 @@ interface QuizState {
   timestamp: string;
   source: ContentSource;
   sourceDetails?: string;
+  questionFormat?: QuestionFormat;
 }
 
 type QuizMode = 'kid' | 'standard';
+
+type QuestionFormat = 'multiple-choice' | 'true-false';
 
 type ContentSource = 'topic' | 'web' | 'file' | 'url';
 
@@ -192,6 +195,7 @@ async function generateQuestions(
   difficulty: 'easy' | 'medium' | 'hard',
   rounds: number,
   mode: QuizMode,
+  format: QuestionFormat,
   content?: string
 ): Promise<QuizQuestion[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -213,6 +217,24 @@ async function generateQuestions(
       ? 'Make the questions kid-friendly with fun analogies and simple language that a child can understand. Use exciting and engaging wording.'
       : 'Use professional, educational language appropriate for adult learners.';
 
+    const formatInstruction = format === 'true-false'
+      ? {
+          type: 'true/false statements',
+          optionCount: 2,
+          optionExample: '["True", "False"]',
+          correctRange: '0-1',
+          optionRequirement: 'Each question must have exactly 2 options: "True" and "False"',
+          questionStyle: 'Create statements that can be answered as either true or false'
+        }
+      : {
+          type: 'multiple-choice questions',
+          optionCount: 4,
+          optionExample: '["Option A", "Option B", "Option C", "Option D"]',
+          correctRange: '0-3',
+          optionRequirement: 'Each question must have exactly 4 options',
+          questionStyle: 'Create questions with four distinct answer choices'
+        };
+
     // When content is provided, restructure prompt to prioritize the content over the topic
     const prompt = content
       ? `You are creating a quiz based EXCLUSIVELY on the following provided content. DO NOT use any external knowledge or information not present in the content below.
@@ -222,9 +244,11 @@ CONTENT TO USE:
 ${content}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Based ONLY on the information in the content above, generate exactly ${rounds} multiple-choice quiz questions about "${topic}" at ${difficulty} difficulty level.
+Based ONLY on the information in the content above, generate exactly ${rounds} ${formatInstruction.type} about "${topic}" at ${difficulty} difficulty level.
 
 ${modeInstruction}
+
+${formatInstruction.questionStyle}
 
 Make the questions progressively more challenging within the set.
 
@@ -238,21 +262,23 @@ Return ONLY a valid JSON array with this exact structure, no markdown formatting
 [
   {
     "question": "Question text here?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "options": ${formatInstruction.optionExample},
     "correct": 0,
     "explanation": "Detailed explanation of why the answer is correct"
   }
 ]
 
 Rules:
-- Each question must have exactly 4 options
-- The "correct" field is the zero-based index (0-3) of the correct option
+- ${formatInstruction.optionRequirement}
+- The "correct" field is the zero-based index (${formatInstruction.correctRange}) of the correct option
 - Include educational explanations
 - Make questions engaging and thought-provoking
 - Ensure factual accuracy by using ONLY the provided content`
-      : `Generate exactly ${rounds} multiple-choice quiz questions about "${topic}" at ${difficulty} difficulty level.
+      : `Generate exactly ${rounds} ${formatInstruction.type} about "${topic}" at ${difficulty} difficulty level.
 
 ${modeInstruction}
+
+${formatInstruction.questionStyle}
 
 Make the questions progressively more challenging within the set.
 
@@ -260,15 +286,15 @@ Return ONLY a valid JSON array with this exact structure, no markdown formatting
 [
   {
     "question": "Question text here?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "options": ${formatInstruction.optionExample},
     "correct": 0,
     "explanation": "Detailed explanation of why the answer is correct"
   }
 ]
 
 Rules:
-- Each question must have exactly 4 options
-- The "correct" field is the zero-based index (0-3) of the correct option
+- ${formatInstruction.optionRequirement}
+- The "correct" field is the zero-based index (${formatInstruction.correctRange}) of the correct option
 - Include educational explanations
 - Make questions engaging and thought-provoking
 - Ensure factual accuracy`;
@@ -301,10 +327,13 @@ Rules:
       throw new Error('Invalid questions format');
     }
 
+    const expectedOptionCount = format === 'true-false' ? 2 : 4;
+    const maxCorrectIndex = format === 'true-false' ? 1 : 3;
+
     for (const q of questions) {
-      if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 ||
-          typeof q.correct !== 'number' || !q.explanation) {
-        throw new Error('Invalid question structure');
+      if (!q.question || !Array.isArray(q.options) || q.options.length !== expectedOptionCount ||
+          typeof q.correct !== 'number' || q.correct < 0 || q.correct > maxCorrectIndex || !q.explanation) {
+        throw new Error(`Invalid question structure (expected ${expectedOptionCount} options, correct index 0-${maxCorrectIndex})`);
       }
     }
 
@@ -325,7 +354,7 @@ Rules:
 }
 
 // Run Interactive Quiz
-async function runQuiz(questions: QuizQuestion[]): Promise<number> {
+async function runQuiz(questions: QuizQuestion[], format: QuestionFormat): Promise<number> {
   let correctAnswers = 0;
   const totalQuestions = questions.length;
 
@@ -340,10 +369,13 @@ async function runQuiz(questions: QuizQuestion[]): Promise<number> {
     console.log(chalk.white(q.question));
     console.log();
 
-    const choices = q.options.map((opt, idx) => {
-      const letter = String.fromCharCode(65 + idx); // A, B, C, D
-      return `${letter}. ${opt}`;
-    });
+    // Display choices based on format
+    const choices = format === 'true-false'
+      ? q.options  // For true/false, just show "True" and "False"
+      : q.options.map((opt, idx) => {
+          const letter = String.fromCharCode(65 + idx); // A, B, C, D
+          return `${letter}. ${opt}`;
+        });
 
     const answer = await inquirer.prompt([
       {
@@ -361,9 +393,13 @@ async function runQuiz(questions: QuizQuestion[]): Promise<number> {
       correctAnswers++;
       console.log(chalk.bold.green('\n✓ Correct! 🎉'));
     } else {
-      const correctLetter = String.fromCharCode(65 + q.correct);
       console.log(chalk.bold.red('\n✗ Incorrect'));
-      console.log(chalk.yellow(`The correct answer was: ${correctLetter}. ${q.options[q.correct]}`));
+      if (format === 'true-false') {
+        console.log(chalk.yellow(`The correct answer was: ${q.options[q.correct]}`));
+      } else {
+        const correctLetter = String.fromCharCode(65 + q.correct);
+        console.log(chalk.yellow(`The correct answer was: ${correctLetter}. ${q.options[q.correct]}`));
+      }
     }
 
     console.log(chalk.cyan(`\n💡 ${q.explanation}`));
@@ -440,10 +476,11 @@ program
   .option('-d, --difficulty <level>', 'Difficulty level: easy, medium, or hard', 'easy')
   .option('-r, --rounds <number>', 'Number of questions', '5')
   .option('--mode <mode>', 'Quiz mode: standard or kid', 'standard')
+  .option('--format <type>', 'Question format: multiple-choice or true-false', 'multiple-choice')
   .option('-s, --source <type>', 'Content source: topic, web, file, or url', 'topic')
   .option('-f, --file <path>', 'Path to file (when using --source file)')
   .option('-u, --url <url>', 'URL to scrape (when using --source url)')
-  .action(async (topic: string | undefined, options: { difficulty: string; rounds: string; mode: string; source: string; file?: string; url?: string }) => {
+  .action(async (topic: string | undefined, options: { difficulty: string; rounds: string; mode: string; format: string; source: string; file?: string; url?: string }) => {
     try {
       // Validate options
       const difficulty = options.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard';
@@ -461,6 +498,12 @@ program
       const mode = options.mode.toLowerCase() as QuizMode;
       if (!['kid', 'standard'].includes(mode)) {
         console.log(chalk.red('❌ Invalid mode. Use: standard or kid'));
+        process.exit(1);
+      }
+
+      const format = options.format.toLowerCase() as QuestionFormat;
+      if (!['multiple-choice', 'true-false'].includes(format)) {
+        console.log(chalk.red('❌ Invalid format. Use: multiple-choice or true-false'));
         process.exit(1);
       }
 
@@ -530,6 +573,7 @@ program
       console.log(chalk.white(`Difficulty: ${chalk.bold(difficulty)}`));
       console.log(chalk.white(`Questions: ${chalk.bold(rounds)}`));
       console.log(chalk.white(`Mode: ${chalk.bold(mode)}`));
+      console.log(chalk.white(`Format: ${chalk.bold(format)}`));
       console.log(chalk.white(`Source: ${chalk.bold(source)}`));
       if (sourceDetails) {
         console.log(chalk.white(`Details: ${chalk.bold(sourceDetails)}`));
@@ -537,7 +581,7 @@ program
       console.log();
 
       // Generate questions
-      const questions = await generateQuestions(topic, difficulty, rounds, mode, content);
+      const questions = await generateQuestions(topic, difficulty, rounds, mode, format, content);
 
       if (questions.length === 0) {
         console.log(chalk.red('❌ Could not generate questions. Please try again.'));
@@ -545,7 +589,7 @@ program
       }
 
       // Run quiz
-      const score = await runQuiz(questions);
+      const score = await runQuiz(questions, format);
 
       // Initialize quiz state
       const quizState: QuizState = {
@@ -556,7 +600,8 @@ program
         history: [],
         timestamp: new Date().toISOString(),
         source,
-        sourceDetails
+        sourceDetails,
+        questionFormat: format
       };
 
       // Handle low score - offer deeper quiz
