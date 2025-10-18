@@ -26,16 +26,90 @@ interface QuizState {
   score: number;
   history: string[];
   timestamp: string;
+  source: ContentSource;
+  sourceDetails?: string;
 }
 
 type QuizMode = 'kid' | 'standard';
+
+type ContentSource = 'topic' | 'web' | 'file' | 'url';
+
+// @ts-ignore - interface reserved for future use
+interface ContentSourceOptions {
+  source: ContentSource;
+  file?: string;
+  url?: string;
+}
+
+// Content Fetcher Functions
+
+async function readFileContent(filePath: string): Promise<string> {
+  try {
+    const resolvedPath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(process.cwd(), filePath);
+
+    const stats = await fs.stat(resolvedPath);
+    if (!stats.isFile()) {
+      throw new Error('Path is not a file');
+    }
+
+    const content = await fs.readFile(resolvedPath, 'utf-8');
+
+    if (!content || content.trim().length === 0) {
+      throw new Error('File is empty');
+    }
+
+    // Truncate to prevent token overflow (approximately 50,000 characters)
+    const maxLength = 50000;
+    if (content.length > maxLength) {
+      console.log(chalk.yellow(`⚠️  File content truncated to ${maxLength} characters`));
+      return content.substring(0, maxLength);
+    }
+
+    return content;
+
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('ENOENT')) {
+        throw new Error(`File not found: ${filePath}`);
+      } else if (error.message.includes('EACCES')) {
+        throw new Error(`Permission denied: ${filePath}`);
+      }
+      throw error;
+    }
+    throw new Error('Failed to read file');
+  }
+}
+
+async function fetchWebContent(query: string): Promise<string> {
+  // Placeholder for Firecrawl MCP integration
+  console.log(chalk.yellow('⚠️  Web search feature coming soon (requires Firecrawl MCP)'));
+  console.log(chalk.cyan(`📝 Search query: "${query}"`));
+  throw new Error('Web search not yet implemented. Use --source topic, --file, or --url instead.');
+}
+
+async function fetchUrlContent(url: string): Promise<string> {
+  // Validate URL format
+  try {
+    new URL(url);
+  } catch (error) {
+    throw new Error(`Invalid URL format: ${url}`);
+  }
+
+  // Placeholder for Firecrawl MCP integration
+  console.log(chalk.yellow('⚠️  URL scraping feature coming soon (requires Firecrawl MCP)'));
+  console.log(chalk.cyan(`📝 URL: "${url}"`));
+  throw new Error('URL scraping not yet implemented. Use --source topic or --file instead.');
+}
 
 // Generate Questions using Claude API
 async function generateQuestions(
   topic: string,
   difficulty: 'easy' | 'medium' | 'hard',
   rounds: number,
-  mode: QuizMode
+  mode: QuizMode,
+  content?: string
 ): Promise<QuizQuestion[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -56,11 +130,15 @@ async function generateQuestions(
       ? 'Make the questions kid-friendly with fun analogies and simple language that a child can understand. Use exciting and engaging wording.'
       : 'Use professional, educational language appropriate for adult learners.';
 
+    const contentContext = content
+      ? `\n\nBase your questions on the following content:\n\n${content}\n\nEnsure all questions are directly derived from the provided content.`
+      : '';
+
     const prompt = `Generate exactly ${rounds} multiple-choice quiz questions about "${topic}" at ${difficulty} difficulty level.
 
 ${modeInstruction}
 
-Make the questions progressively more challenging within the set.
+Make the questions progressively more challenging within the set.${contentContext}
 
 Return ONLY a valid JSON array with this exact structure, no markdown formatting:
 [
@@ -77,7 +155,7 @@ Rules:
 - The "correct" field is the zero-based index (0-3) of the correct option
 - Include educational explanations
 - Make questions engaging and thought-provoking
-- Ensure factual accuracy`;
+- Ensure factual accuracy${content ? '\n- Base all questions strictly on the provided content' : ''}`;
 
     console.log(chalk.cyan('🤖 Generating quiz questions with Claude AI...\n'));
 
@@ -246,7 +324,10 @@ program
   .option('-d, --difficulty <level>', 'Difficulty level: easy, medium, or hard', 'easy')
   .option('-r, --rounds <number>', 'Number of questions', '5')
   .option('--mode <mode>', 'Quiz mode: standard or kid', 'standard')
-  .action(async (topic: string, options: { difficulty: string; rounds: string; mode: string }) => {
+  .option('-s, --source <type>', 'Content source: topic, web, file, or url', 'topic')
+  .option('-f, --file <path>', 'Path to file (when using --source file)')
+  .option('-u, --url <url>', 'URL to scrape (when using --source url)')
+  .action(async (topic: string, options: { difficulty: string; rounds: string; mode: string; source: string; file?: string; url?: string }) => {
     try {
       // Validate options
       const difficulty = options.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard';
@@ -267,15 +348,62 @@ program
         process.exit(1);
       }
 
+      const source = options.source.toLowerCase() as ContentSource;
+      if (!['topic', 'web', 'file', 'url'].includes(source)) {
+        console.log(chalk.red('❌ Invalid source. Use: topic, web, file, or url'));
+        process.exit(1);
+      }
+
+      // Validate source-specific options
+      if (source === 'file' && !options.file) {
+        console.log(chalk.red('❌ --file option required when using --source file'));
+        process.exit(1);
+      }
+
+      if (source === 'url' && !options.url) {
+        console.log(chalk.red('❌ --url option required when using --source url'));
+        process.exit(1);
+      }
+
+      // Fetch content based on source
+      let content: string | undefined;
+      let sourceDetails: string | undefined;
+
+      try {
+        if (source === 'file' && options.file) {
+          console.log(chalk.cyan(`📄 Reading content from file: ${options.file}\n`));
+          content = await readFileContent(options.file);
+          sourceDetails = options.file;
+          console.log(chalk.green(`✓ File loaded successfully (${content.length} characters)\n`));
+        } else if (source === 'web') {
+          console.log(chalk.cyan(`🌐 Searching web for: ${topic}\n`));
+          content = await fetchWebContent(topic);
+          sourceDetails = topic;
+        } else if (source === 'url' && options.url) {
+          console.log(chalk.cyan(`🔗 Fetching content from URL: ${options.url}\n`));
+          content = await fetchUrlContent(options.url);
+          sourceDetails = options.url;
+        }
+      } catch (error) {
+        console.log(chalk.red('\n❌ Failed to fetch content:'));
+        console.log(chalk.white(`  ${error instanceof Error ? error.message : 'Unknown error'}`));
+        process.exit(1);
+      }
+
       // Welcome message
       console.log(chalk.bold.magenta('\n🎓 Welcome to QuizQuest! 🎓'));
       console.log(chalk.white(`Topic: ${chalk.bold(topic)}`));
       console.log(chalk.white(`Difficulty: ${chalk.bold(difficulty)}`));
       console.log(chalk.white(`Questions: ${chalk.bold(rounds)}`));
-      console.log(chalk.white(`Mode: ${chalk.bold(mode)}\n`));
+      console.log(chalk.white(`Mode: ${chalk.bold(mode)}`));
+      console.log(chalk.white(`Source: ${chalk.bold(source)}`));
+      if (sourceDetails) {
+        console.log(chalk.white(`Details: ${chalk.bold(sourceDetails)}`));
+      }
+      console.log();
 
       // Generate questions
-      const questions = await generateQuestions(topic, difficulty, rounds, mode);
+      const questions = await generateQuestions(topic, difficulty, rounds, mode, content);
 
       if (questions.length === 0) {
         console.log(chalk.red('❌ Could not generate questions. Please try again.'));
@@ -292,7 +420,9 @@ program
         rounds: questions.length,
         score,
         history: [],
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        source,
+        sourceDetails
       };
 
       // Handle low score - offer deeper quiz

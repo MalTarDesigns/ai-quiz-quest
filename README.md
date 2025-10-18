@@ -1,15 +1,17 @@
 # QuizQuest - AI-Powered Learning Quiz CLI
 
-Interactive command-line quiz application powered by Anthropic's Claude AI. Learn any topic through adaptive, progressively challenging multiple-choice questions with instant feedback and explanations.
+Interactive command-line quiz application powered by Anthropic's Claude AI. Learn any topic through adaptive, progressively challenging multiple-choice questions with instant feedback and explanations. Generate quizzes from topics, web searches, uploaded documents, or specific URLs.
 
 ## Features
 
 - **AI-Generated Questions**: Dynamic quiz generation using Claude AI
+- **Multiple Content Sources**: Generate quizzes from topics, files, web searches, or URLs
+- **File Upload Support**: Create quizzes from your own documents, notes, or study materials
 - **Adaptive Difficulty**: Choose from easy, medium, or hard difficulty levels
 - **Kid-Friendly Mode**: Special mode with fun analogies and simple language
 - **Interactive Experience**: Colorful, engaging terminal interface
 - **Instant Feedback**: Immediate explanations after each question
-- **Progress Tracking**: Automatic saving of quiz history
+- **Progress Tracking**: Automatic saving of quiz history with source tracking
 - **Smart Follow-ups**: Offers deeper practice on challenging topics
 
 ## Installation
@@ -37,40 +39,118 @@ ANTHROPIC_API_KEY=your_actual_api_key_here
 
 ### Basic Command
 
+Development mode:
 ```bash
-npx ts-node src/index.ts learn "<topic>"
+npm run dev learn "<topic>" [options]
 ```
+
+Production mode (after building):
+```bash
+npm run build
+npm start learn "<topic>" [options]
+```
+
+### Content Source Options
+
+QuizQuest supports four content sources for generating quizzes:
+
+1. **Topic-based** (default): General knowledge questions on any topic
+2. **File-based**: Generate questions from your own documents
+3. **Web search**: Create quizzes from web search results (coming soon)
+4. **URL-based**: Generate questions from specific web pages (coming soon)
 
 ### Examples
 
+#### Topic-Based Quizzes (Default)
+
 Learn Angular services (default: easy, 5 questions):
 ```bash
-npx ts-node src/index.ts learn "Angular services"
+npm run dev learn "Angular services"
 ```
 
 Medium difficulty with 10 questions:
 ```bash
-npx ts-node src/index.ts learn "JavaScript async/await" -d medium -r 10
+npm run dev learn "JavaScript async/await" -d medium -r 10
 ```
 
 Kid-friendly mode for young learners:
 ```bash
-npx ts-node src/index.ts learn "Solar System" --mode kid -r 8
+npm run dev learn "Solar System" --mode kid -r 8
 ```
 
 Hard difficulty challenge:
 ```bash
-npx ts-node src/index.ts learn "TypeScript generics" -d hard
+npm run dev learn "TypeScript generics" -d hard
+```
+
+#### File-Based Quizzes
+
+Generate quiz from your study notes:
+```bash
+npm run dev learn "React Hooks" --source file --file ./my-notes.txt -r 10
+```
+
+Quiz from documentation:
+```bash
+npm run dev learn "API Design" --source file --file /path/to/docs.md -d medium
+```
+
+Test knowledge from course materials:
+```bash
+npm run dev learn "Database Fundamentals" -s file -f ./db-chapter.txt -d hard
+```
+
+#### Web and URL-Based Quizzes (Coming Soon)
+
+Search web and generate quiz:
+```bash
+npm run dev learn "Machine Learning" --source web -r 10
+```
+
+Quiz from specific URL:
+```bash
+npm run dev learn "React Documentation" --source url --url https://react.dev/learn
 ```
 
 ### Command Options
 
-- `<topic>` - **Required**: The topic you want to learn about
-- `-d, --difficulty <level>` - Difficulty level: `easy`, `medium`, or `hard` (default: easy)
-- `-r, --rounds <number>` - Number of questions (1-20, default: 5)
-- `--mode <mode>` - Quiz mode: `standard` or `kid` (default: standard)
+**Required:**
+- `<topic>` - The topic you want to learn about (or description when using file/url sources)
+
+**Optional:**
+- `-d, --difficulty <level>` - Difficulty level: `easy`, `medium`, or `hard` (default: `easy`)
+- `-r, --rounds <number>` - Number of questions (1-20, default: `5`)
+- `--mode <mode>` - Quiz mode: `standard` or `kid` (default: `standard`)
+- `-s, --source <type>` - Content source: `topic`, `web`, `file`, or `url` (default: `topic`)
+- `-f, --file <path>` - Path to file (required when using `--source file`)
+- `-u, --url <url>` - URL to scrape (required when using `--source url`)
 
 ## Features in Detail
+
+### Content Sources
+
+#### 1. Topic-Based (Default)
+Generate quizzes on any topic using Claude's general knowledge. Perfect for learning new concepts or testing existing knowledge.
+
+#### 2. File-Based
+Upload your own study materials, notes, or documentation to create targeted quizzes. Supports:
+- Text files (.txt)
+- Markdown files (.md)
+- Any UTF-8 text content
+- Automatic content truncation (50,000 character limit to prevent token overflow)
+- Both relative and absolute file paths
+
+**Use Cases:**
+- Study for exams using course notes
+- Test understanding of technical documentation
+- Review meeting notes or study guides
+- Create quizzes from research papers
+
+#### 3. Web Search (Coming Soon - Requires Firecrawl MCP)
+Search the web and generate quizzes from aggregated search results. Perfect for current events or specialized topics.
+
+#### 4. URL-Based (Coming Soon - Requires Firecrawl MCP)
+Generate quizzes from specific web pages, blog posts, or online documentation.
 
 ### Adaptive Learning
 
@@ -82,11 +162,11 @@ If you score below 80%, QuizQuest will offer you a deeper quiz on challenging co
 
 ### Quiz History
 
-All quiz sessions are automatically saved to `quiz-history.json`, allowing you to track your learning progress over time.
-
-### Fallback Questions
-
-Even without an API key, QuizQuest provides fallback questions so you can try the application.
+All quiz sessions are automatically saved to `quiz-history.json`, including:
+- Topic and difficulty
+- Score and timestamp
+- Content source type
+- Source details (file path, URL, or search query)
 
 ## Project Structure
 
@@ -125,18 +205,43 @@ npm run build
 ## Error Handling
 
 QuizQuest handles errors gracefully:
-- Missing API key: Falls back to sample questions
-- API failures: Automatic fallback questions
-- Invalid options: Clear error messages
-- Network issues: User-friendly error reporting
+- **Missing API key**: Clear instructions to configure
+- **API failures**: Detailed error messages with troubleshooting steps
+- **Invalid options**: Helpful validation messages
+- **File errors**: Specific messages for not found, permission denied, or empty files
+- **Network issues**: User-friendly error reporting
+- **Content validation**: Checks for file existence, URL format, and required options
 
 ## Examples of Use Cases
 
-- **Students**: Learn new subjects interactively
-- **Developers**: Test knowledge on programming topics
-- **Teachers**: Generate quick quizzes for students
+- **Students**: Learn new subjects interactively, create quizzes from class notes
+- **Developers**: Test knowledge on programming topics, quiz from documentation
+- **Teachers**: Generate quick quizzes for students from course materials
 - **Parents**: Educational quizzes for children (kid mode)
-- **Self-learners**: Reinforce understanding of any topic
+- **Self-learners**: Reinforce understanding of any topic using your own study materials
+- **Researchers**: Test comprehension of papers and articles
+- **Certification Prep**: Create practice tests from study guides
+
+## Roadmap
+
+### Phase 1: Core Features (Complete)
+- Topic-based quiz generation
+- Difficulty levels and kid mode
+- Quiz history tracking
+- Improved error handling
+
+### Phase 2: Content Sources (Current)
+- File-based quiz generation (Complete)
+- Web search integration (Pending - requires Firecrawl MCP)
+- URL scraping (Pending - requires Firecrawl MCP)
+- Enhanced quiz history with source tracking
+
+### Phase 3: Advanced Features (Planned)
+- Firecrawl MCP integration for web/URL sources
+- Statistics dashboard
+- Multiple file format support (PDF, DOCX)
+- Custom question banks
+- Spaced repetition learning
 
 ## Contributing
 
@@ -145,7 +250,7 @@ Contributions welcome! Areas for enhancement:
 - Statistics dashboard
 - Multiplayer support
 - Question difficulty rating
-- Custom question banks
+- Additional file format support
 
 ## License
 
