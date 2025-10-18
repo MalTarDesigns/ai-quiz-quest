@@ -1,6 +1,6 @@
 # QuizQuest - AI-Powered Learning Quiz CLI
 
-Interactive command-line quiz application powered by Anthropic's Claude AI. Learn any topic through adaptive, progressively challenging questions with instant feedback and explanations. Generate quizzes from topics, web searches, uploaded documents, or specific URLs.
+Interactive command-line quiz application powered by Anthropic's Claude AI. Learn any topic through adaptive, progressively challenging questions with instant feedback and explanations. Generate quizzes from topics or your own documents (TXT, MD, PDF, DOCX).
 
 ## Quick Start
 
@@ -24,8 +24,8 @@ Get your free API key from [Anthropic Console](https://console.anthropic.com/)
 
 - **AI-Generated Questions**: Dynamic quiz generation using Claude AI
 - **Multiple Question Formats**: Choose between multiple-choice (4 options) or true-false questions
-- **Multiple Content Sources**: Generate quizzes from topics, files, web searches, or URLs
-- **File Upload Support**: Create quizzes from your documents - supports TXT, MD, PDF, and DOCX files
+- **Multiple Content Sources**: Generate quizzes from topics or your own documents
+- **File Upload Support**: Supports TXT, MD, PDF, and DOCX files
 - **Adaptive Difficulty**: Choose from easy, medium, or hard difficulty levels
 - **Kid-Friendly Mode**: Special mode with fun analogies and simple language
 - **Interactive Experience**: Colorful, engaging terminal interface
@@ -74,12 +74,10 @@ npm start learn "<topic>" [options]
 
 ### Content Source Options
 
-QuizQuest supports four content sources for generating quizzes:
+QuizQuest supports two content sources for generating quizzes:
 
-1. **Topic-based** (default): General knowledge questions on any topic
-2. **File-based**: Generate questions from your own documents
-3. **Web search**: Create quizzes from web search results (coming soon)
-4. **URL-based**: Generate questions from specific web pages (coming soon)
+1. **Topic-based** (default): General knowledge questions on any topic using Claude's knowledge
+2. **File-based**: Generate questions from your own documents (TXT, MD, PDF, DOCX)
 
 ### Examples
 
@@ -154,31 +152,18 @@ True/false quiz from a file:
 npm run dev learn "Study Notes" --format true-false -s file -f ./notes.pdf -r 10
 ```
 
-#### Web and URL-Based Quizzes (Coming Soon)
-
-Search web and generate quiz:
-```bash
-npm run dev learn "Machine Learning" --source web -r 10
-```
-
-Quiz from specific URL:
-```bash
-npm run dev learn "React Documentation" --source url --url https://react.dev/learn
-```
-
 ### Command Options
 
 **Required:**
-- `<topic>` - The topic you want to learn about (or description when using file/url sources)
+- `<topic>` - The topic you want to learn about
 
 **Optional:**
 - `-d, --difficulty <level>` - Difficulty level: `easy`, `medium`, or `hard` (default: `easy`)
 - `-r, --rounds <number>` - Number of questions (1-20, default: `5`)
 - `--mode <mode>` - Quiz mode: `standard` or `kid` (default: `standard`)
 - `--format <type>` - Question format: `multiple-choice` or `true-false` (default: `multiple-choice`)
-- `-s, --source <type>` - Content source: `topic`, `web`, `file`, or `url` (default: `topic`)
+- `-s, --source <type>` - Content source: `topic` or `file` (default: `topic`)
 - `-f, --file <path>` - Path to file (required when using `--source file`)
-- `-u, --url <url>` - URL to scrape (required when using `--source url`)
 
 ## Features in Detail
 
@@ -203,12 +188,6 @@ Upload your own study materials, notes, or documentation to create targeted quiz
 - Review meeting notes or study guides
 - Create quizzes from research papers and academic PDFs
 - Quiz from Word documents and presentations
-
-#### 3. Web Search (Coming Soon - Requires Firecrawl MCP)
-Search the web and generate quizzes from aggregated search results. Perfect for current events or specialized topics.
-
-#### 4. URL-Based (Coming Soon - Requires Firecrawl MCP)
-Generate quizzes from specific web pages, blog posts, or online documentation.
 
 ### Adaptive Learning
 
@@ -294,12 +273,10 @@ QuizQuest handles errors gracefully:
 - Enhanced quiz history with source tracking
 - Adaptive question generation from custom content
 
-### Phase 3: Web Integration (In Progress)
-- Web search integration (Pending - requires Firecrawl MCP)
-- URL scraping (Pending - requires Firecrawl MCP)
-- Firecrawl MCP integration for web/URL sources
-
-### Phase 4: Advanced Features (Planned)
+### Future Enhancements
+See [GitHub Issues](https://github.com/MalTarDesigns/ai-quiz-quest/issues) for planned features:
+- Multi-provider AI support (OpenAI, Google Gemini)
+- Web search and URL scraping integration
 - Statistics dashboard
 - Custom question banks
 - Spaced repetition learning
@@ -307,14 +284,11 @@ QuizQuest handles errors gracefully:
 
 ## Contributing
 
-Contributions welcome! Areas for enhancement:
-- Web search and URL scraping integration (Firecrawl MCP)
-- Statistics dashboard
-- Multiplayer support
-- Question difficulty rating
-- Additional file format support (CSV, JSON, etc.)
-- Custom themes and styling
-- Quiz templates and presets
+Contributions welcome! Check out our [GitHub Issues](https://github.com/MalTarDesigns/ai-quiz-quest/issues) for planned enhancements and feature requests. Feel free to:
+- Report bugs or request features
+- Submit pull requests
+- Improve documentation
+- Share feedback and ideas
 
 ## License
 
