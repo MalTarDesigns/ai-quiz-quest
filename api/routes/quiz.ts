@@ -116,13 +116,15 @@ router.post('/generate', validateGenerateRequest, async (req: Request, res: Resp
     );
 
     res.json({
-      success: true,
-      topic: quizTopic,
-      difficulty,
-      mode,
-      format,
-      rounds: questions.length,
-      questions
+      quiz: {
+        id: `quiz_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        topic: quizTopic,
+        difficulty,
+        mode,
+        format,
+        questions,
+        createdAt: new Date().toISOString()
+      }
     });
 
   } catch (error) {
