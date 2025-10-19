@@ -9,9 +9,7 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const history = await loadQuizHistory();
     res.json({
-      success: true,
-      count: history.length,
-      history
+      quizzes: history
     });
   } catch (error) {
     console.error('History load error:', error);
