@@ -29,7 +29,14 @@ export default function Home() {
 
     try {
       const response = await generateQuiz(formData);
-      router.push(`/quiz/${response.quiz.id}`);
+
+      // Store quiz data in sessionStorage
+      sessionStorage.setItem('quiz-questions', JSON.stringify(response.quiz.questions));
+      sessionStorage.setItem('quiz-topic', response.quiz.topic);
+      sessionStorage.setItem('quiz-difficulty', response.quiz.difficulty);
+      sessionStorage.setItem('quiz-format', formData.format);
+
+      router.push('/quiz');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate quiz');
       setLoading(false);

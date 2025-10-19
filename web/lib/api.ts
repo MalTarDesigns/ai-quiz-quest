@@ -3,7 +3,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 export interface QuizQuestion {
   question: string;
   options: string[];
-  correctAnswer: number;
+  correct: number;
   explanation: string;
 }
 
@@ -27,8 +27,17 @@ export interface QuizGenerateResponse {
   quiz: Quiz;
 }
 
+export interface QuizHistoryItem {
+  topic: string;
+  difficulty: string;
+  rounds: number;
+  score: number;
+  timestamp: string;
+  questionFormat?: string;
+}
+
 export interface QuizHistoryResponse {
-  quizzes: Quiz[];
+  quizzes: QuizHistoryItem[];
 }
 
 export async function generateQuiz(request: QuizGenerateRequest): Promise<QuizGenerateResponse> {
@@ -57,4 +66,23 @@ export async function getQuizHistory(): Promise<QuizHistoryResponse> {
   }
 
   return response.json();
+}
+
+export async function saveQuizResult(result: Omit<QuizHistoryItem, 'timestamp'>): Promise<void> {
+  const response = await fetch(`${API_URL}/api/history`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ...result,
+      timestamp: new Date().toISOString(),
+      source: 'web',
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to save result' }));
+    throw new Error(error.error || 'Failed to save result');
+  }
 }
