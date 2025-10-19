@@ -14,6 +14,75 @@ import pdfParse from 'pdf-parse';
 // Load environment variables
 dotenv.config();
 
+// Model Configuration with Token Limits
+interface ModelConfig {
+  id: string;
+  maxOutputTokens: number;
+  description: string;
+}
+
+const CLAUDE_MODELS: Record<string, ModelConfig> = {
+  'claude-sonnet-4-5-20250929': {
+    id: 'claude-sonnet-4-5-20250929',
+    maxOutputTokens: 64000,
+    description: 'Claude Sonnet 4.5 (Latest - Best coding model)'
+  },
+  'claude-sonnet-4-20250514': {
+    id: 'claude-sonnet-4-20250514',
+    maxOutputTokens: 64000,
+    description: 'Claude Sonnet 4 (64k output)'
+  },
+  'claude-opus-4-20250514': {
+    id: 'claude-opus-4-20250514',
+    maxOutputTokens: 32000,
+    description: 'Claude Opus 4 (Most capable - 32k output)'
+  },
+  'claude-3-7-sonnet-20250219': {
+    id: 'claude-3-7-sonnet-20250219',
+    maxOutputTokens: 8192,
+    description: 'Claude 3.7 Sonnet (Extended thinking - 8k default, 128k with beta)'
+  },
+  'claude-haiku-4-5': {
+    id: 'claude-haiku-4-5',
+    maxOutputTokens: 8192,
+    description: 'Claude Haiku 4.5 (Fast and efficient)'
+  }
+};
+
+// Get configured model or default
+const getModelConfig = (): ModelConfig => {
+  const envModel = process.env.ANTHROPIC_MODEL;
+
+  if (envModel && CLAUDE_MODELS[envModel]) {
+    return CLAUDE_MODELS[envModel];
+  }
+
+  // Default to Claude Sonnet 4.5 (latest and best)
+  return CLAUDE_MODELS['claude-sonnet-4-5-20250929'];
+};
+
+const MODEL_CONFIG = getModelConfig();
+
+// Load and validate MAX_QUESTIONS configuration
+const getMaxQuestions = (): number => {
+  const envValue = process.env.MAX_QUESTIONS;
+
+  if (!envValue) {
+    return 50; // Default value
+  }
+
+  const parsed = parseInt(envValue, 10);
+
+  if (parsed !== 50 && parsed !== 100) {
+    console.log(chalk.yellow('⚠️  Warning: MAX_QUESTIONS must be 50 or 100. Using default: 50'));
+    return 50;
+  }
+
+  return parsed;
+};
+
+const MAX_QUESTIONS = getMaxQuestions();
+
 // Type Definitions
 interface QuizQuestion {
   question: string;
@@ -172,8 +241,8 @@ async function generateTopicFromContent(content: string): Promise<string> {
     const prompt = `Analyze the following text and provide a concise topic (3-5 words) that summarizes it. Only return the topic string, with no extra text or quotation marks.\n\nContent:\n${content}`;
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2000,
+      model: MODEL_CONFIG.id,
+      max_tokens: MODEL_CONFIG.maxOutputTokens,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -302,8 +371,8 @@ Rules:
     console.log(chalk.cyan('🤖 Generating quiz questions with Claude AI...\n'));
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2000,
+      model: MODEL_CONFIG.id,
+      max_tokens: MODEL_CONFIG.maxOutputTokens,
       messages: [{
         role: 'user',
         content: prompt
@@ -490,8 +559,9 @@ program
       }
 
       const rounds = parseInt(options.rounds, 10);
-      if (isNaN(rounds) || rounds < 1 || rounds > 20) {
-        console.log(chalk.red('❌ Invalid rounds. Use a number between 1 and 20'));
+      if (isNaN(rounds) || rounds < 1 || rounds > MAX_QUESTIONS) {
+        console.log(chalk.red(`❌ Invalid rounds. Use a number between 1 and ${MAX_QUESTIONS}`));
+        console.log(chalk.gray(`   (Admin can configure MAX_QUESTIONS in .env: 50 or 100)`));
         process.exit(1);
       }
 

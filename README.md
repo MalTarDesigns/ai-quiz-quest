@@ -11,8 +11,10 @@ Get started in 3 simple steps:
 # 2. Install dependencies
 npm install
 
-# 3. Set up your API key
+# 3. Set up your API key (and optional config)
 echo "ANTHROPIC_API_KEY=your_actual_api_key_here" > .env
+echo "ANTHROPIC_MODEL=claude-sonnet-4-5-20250929" >> .env
+echo "MAX_QUESTIONS=50" >> .env
 
 # 4. Run your first quiz!
 npm run dev learn "JavaScript" -d easy -r 5
@@ -52,10 +54,51 @@ npm install
 3. Configure your API key:
    - Get an API key from [Anthropic Console](https://console.anthropic.com/)
    - Create a `.env` file in the root directory
-   - Add your API key:
+   - Add your API key and optional settings:
 ```
 ANTHROPIC_API_KEY=your_actual_api_key_here
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
+MAX_QUESTIONS=50
 ```
+
+## Configuration
+
+### Environment Variables
+
+QuizQuest supports the following environment variables in your `.env` file:
+
+- **ANTHROPIC_API_KEY** (required): Your Anthropic API key
+- **ANTHROPIC_MODEL** (optional): Claude model to use for quiz generation
+  - Supported models:
+    - `claude-sonnet-4-5-20250929` (64k output) - Latest & best [DEFAULT]
+    - `claude-sonnet-4-20250514` (64k output) - Good for large quizzes
+    - `claude-opus-4-20250514` (32k output) - Most capable model
+    - `claude-3-7-sonnet-20250219` (8k/128k output) - Extended thinking
+    - `claude-haiku-4-5` (8k output) - Fast and efficient
+  - Default: `claude-sonnet-4-5-20250929`
+  - For 50-100 questions, use models with higher token limits (64k)
+- **MAX_QUESTIONS** (optional): Maximum number of questions allowed per quiz
+  - Supported values: `50` or `100`
+  - Default: `50`
+  - Controls the upper limit for the `-r, --rounds` option
+  - Higher values increase API costs proportionally (see Cost Analysis below)
+
+### Cost Analysis
+
+QuizQuest uses Claude Sonnet 4.5 API by default with the following approximate costs per quiz:
+
+| Questions | Topic-Based Quiz | File-Based Quiz (50K chars) |
+|-----------|------------------|------------------------------|
+| 5-20      | $0.02-$0.04      | $0.06-$0.09                  |
+| 50        | $0.06-$0.10      | $0.10-$0.15                  |
+| 100       | $0.12-$0.18      | $0.16-$0.24                  |
+
+**Note:** Costs vary by model:
+- Claude Sonnet 4.5/4: $3/$15 per million tokens (input/output)
+- Claude Opus 4: $15/$75 per million tokens (higher quality, higher cost)
+- Claude Haiku 4.5: Lower cost, faster responses
+
+All costs remain very affordable, even at maximum question counts.
 
 ## Usage
 
@@ -101,6 +144,16 @@ npm run dev learn "Solar System" --mode kid -r 8
 Hard difficulty challenge:
 ```bash
 npm run dev learn "TypeScript generics" -d hard
+```
+
+Extended quiz with maximum questions (requires MAX_QUESTIONS=50 in .env):
+```bash
+npm run dev learn "Python Programming" -r 50 -d medium
+```
+
+Comprehensive quiz at max capacity (requires MAX_QUESTIONS=100 in .env):
+```bash
+npm run dev learn "Data Structures" -r 100 -d hard
 ```
 
 #### File-Based Quizzes
@@ -159,11 +212,13 @@ npm run dev learn "Study Notes" --format true-false -s file -f ./notes.pdf -r 10
 
 **Optional:**
 - `-d, --difficulty <level>` - Difficulty level: `easy`, `medium`, or `hard` (default: `easy`)
-- `-r, --rounds <number>` - Number of questions (1-20, default: `5`)
+- `-r, --rounds <number>` - Number of questions (1-50 or 1-100 depending on MAX_QUESTIONS config, default: `5`)
 - `--mode <mode>` - Quiz mode: `standard` or `kid` (default: `standard`)
 - `--format <type>` - Question format: `multiple-choice` or `true-false` (default: `multiple-choice`)
 - `-s, --source <type>` - Content source: `topic` or `file` (default: `topic`)
 - `-f, --file <path>` - Path to file (required when using `--source file`)
+
+**Note:** The maximum value for `-r, --rounds` is controlled by the `MAX_QUESTIONS` environment variable (default: 50, max: 100).
 
 ## Features in Detail
 
