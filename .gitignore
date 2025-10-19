@@ -1,6 +1,58 @@
+# Dependencies
 node_modules/
+api/node_modules/
+web/node_modules/
+
+# Build outputs
 dist/
+api/dist/
+web/.next/
+web/out/
+
+# Environment files
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+api/.env
+api/.env.local
+web/.env.local
+
+# Runtime data
 quiz-history.json
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# TypeScript
+*.tsbuildinfo
+src/shared/*.js
+src/shared/*.d.ts
+src/shared/*.js.map
+src/shared/*.d.ts.map
+
+# Next.js
+web/.next/
+web/out/
+web/build/
+web/.vercel
+
+# Claude Code
+.claude/
+
+# Specs and plans (optional - uncomment if you want to keep specs private)
+# specs/
